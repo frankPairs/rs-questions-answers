@@ -40,13 +40,13 @@ pub fn extract_pagination(params: HashMap<String, String>) -> Result<Pagination,
         .get("start")
         .unwrap()
         .parse::<usize>()
-        .map_err(|err| Error::ParseError(err))?;
+        .map_err(Error::ParseError)?;
     // Takes a "end" query param from the url and tries to convert it to a number
     let end = params
         .get("end")
         .unwrap()
         .parse::<usize>()
-        .map_err(|err| Error::ParseError(err))?;
+        .map_err(Error::ParseError)?;
 
     Ok(Pagination { start, end })
 }

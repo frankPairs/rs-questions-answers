@@ -39,7 +39,7 @@ pub async fn get_question_handler(
         .get(&types::questions::QuestionId(question_id).to_string())
     {
         Some(question) => Ok(reply::json(question)),
-        None => return Err(reject::custom(Error::QuestionNotFound)),
+        None => Err(reject::custom(Error::QuestionNotFound)),
     }
 }
 
@@ -53,7 +53,7 @@ pub async fn delete_question_handler(
         .remove(&types::questions::QuestionId(question_id).to_string())
     {
         Some(_) => Ok(reply::with_status("Question deleted!", StatusCode::OK)),
-        None => return Err(reject::custom(Error::QuestionNotFound)),
+        None => Err(reject::custom(Error::QuestionNotFound)),
     }
 }
 
