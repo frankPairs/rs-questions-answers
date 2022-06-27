@@ -7,6 +7,23 @@ use warp::{http::Method, path, Filter};
 
 #[tokio::main]
 async fn main() {
+    log4rs::init_file("log4rs.yml", Default::default()).unwrap();
+
+    log::error!("This is an error");
+    log::info!("This is an info");
+    log::warn!("This is a warning");
+
+    let log = warp::log::custom(|info| {
+        log::info!(
+            "{} {} {} {:?} from {} with {:?}",
+            info.method(),
+            info.path(),
+            info.status(),
+            info.elapsed(),
+            info.remote_addr().unwrap(),
+            info.request_headers()
+        )
+    });
     let store = store::Store::new();
     let store_filter = warp::any().map(move || store.clone());
     let cors = warp::cors()
@@ -60,6 +77,7 @@ async fn main() {
         .or(get_question)
         .or(add_answer)
         .with(cors)
+        .with(log)
         .recover(error_handler);
 
     // start the server and pass the route filter to it
