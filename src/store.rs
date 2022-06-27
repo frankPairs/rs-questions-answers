@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use crate::types::{answers::Answer, questions::Question};
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Store {
     pub questions: Arc<RwLock<HashMap<String, Question>>>,
     pub answers: Arc<RwLock<HashMap<String, Answer>>>,

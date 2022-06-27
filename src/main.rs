@@ -3,27 +3,18 @@ mod store;
 mod types;
 
 use handle_errors::error_handler;
+use tracing_subscriber::fmt::format::FmtSpan;
 use warp::{http::Method, path, Filter};
 
 #[tokio::main]
 async fn main() {
-    log4rs::init_file("log4rs.yml", Default::default()).unwrap();
+    let log_filter = std::env::var("RUST_LOG").unwrap_or_else(|_| "questions_answers".to_string());
 
-    log::error!("This is an error");
-    log::info!("This is an info");
-    log::warn!("This is a warning");
+    tracing_subscriber::fmt()
+        .with_env_filter(log_filter)
+        .with_span_events(FmtSpan::CLOSE)
+        .init();
 
-    let log = warp::log::custom(|info| {
-        log::info!(
-            "{} {} {} {:?} from {} with {:?}",
-            info.method(),
-            info.path(),
-            info.status(),
-            info.elapsed(),
-            info.remote_addr().unwrap(),
-            info.request_headers()
-        )
-    });
     let store = store::Store::new();
     let store_filter = warp::any().map(move || store.clone());
     let cors = warp::cors()
@@ -36,7 +27,10 @@ async fn main() {
         .and(path::end())
         .and(warp::query())
         .and(store_filter.clone())
-        .and_then(handlers::questions::get_questions_handler);
+        .and_then(handlers::questions::get_questions_handler)
+        .with(warp::trace(
+            |info| tracing::info_span!("get questions request", method = %info.method(), path = %info.path(), id = %uuid::Uuid::new_v4()),
+        ));
     let add_question = warp::post()
         .and(path("questions"))
         .and(path::end())
@@ -69,6 +63,7 @@ async fn main() {
         .and(warp::body::form())
         .and(store_filter.clone())
         .and_then(handlers::answers::add_answer_handler);
+
     // Global Routes
     let routes = get_questions
         .or(update_question)
@@ -77,7 +72,7 @@ async fn main() {
         .or(get_question)
         .or(add_answer)
         .with(cors)
-        .with(log)
+        .with(warp::trace::request())
         .recover(error_handler);
 
     // start the server and pass the route filter to it
