@@ -8,6 +8,7 @@ use warp::{
 #[derive(Debug)]
 pub enum Error {
     ParseError(std::num::ParseIntError),
+    BadQuestionId,
     MissingParameters,
     QuestionNotFound,
 }
@@ -20,6 +21,7 @@ impl Display for Error {
                 write!(f, "Missing parameters")
             }
             Error::QuestionNotFound => write!(f, "Question not found"),
+            Error::BadQuestionId => write!(f, "Question id must be an integer"),
         }
     }
 }

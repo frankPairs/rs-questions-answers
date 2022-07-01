@@ -30,7 +30,7 @@ pub async fn add_question_handler(
 }
 
 pub async fn get_question_handler(
-    question_id: String,
+    question_id: i32,
     store: store::Store,
 ) -> Result<impl Reply, Rejection> {
     match store
@@ -44,7 +44,7 @@ pub async fn get_question_handler(
 }
 
 pub async fn delete_question_handler(
-    question_id: String,
+    question_id: i32,
     store: store::Store,
 ) -> Result<impl Reply, Rejection> {
     match store
@@ -58,7 +58,7 @@ pub async fn delete_question_handler(
 }
 
 pub async fn update_question_handler(
-    question_id: String,
+    question_id: i32,
     question: types::questions::Question,
     store: store::Store,
 ) -> Result<impl Reply, Rejection> {
