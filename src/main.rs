@@ -27,10 +27,7 @@ async fn main() {
         .and(path::end())
         .and(warp::query())
         .and(store_filter.clone())
-        .and_then(handlers::questions::get_questions_handler)
-        .with(warp::trace(
-            |info| tracing::info_span!("get questions request", method = %info.method(), path = %info.path(), id = %uuid::Uuid::new_v4()),
-        ));
+        .and_then(handlers::questions::get_questions_handler);
     let add_question = warp::post()
         .and(path("questions"))
         .and(path::end())
@@ -39,20 +36,20 @@ async fn main() {
         .and_then(handlers::questions::add_question_handler);
     let update_question = warp::put()
         .and(path("questions"))
-        .and(path::param::<i32>())
+        .and(path::param::<u32>())
         .and(path::end())
         .and(warp::body::json())
         .and(store_filter.clone())
         .and_then(handlers::questions::update_question_handler);
     let delete_question = warp::delete()
         .and(path("questions"))
-        .and(path::param::<i32>())
+        .and(path::param::<u32>())
         .and(path::end())
         .and(store_filter.clone())
         .and_then(handlers::questions::delete_question_handler);
-    let get_question = warp::delete()
+    let get_question = warp::get()
         .and(path("questions"))
-        .and(path::param::<i32>())
+        .and(path::param::<u32>())
         .and(path::end())
         .and(store_filter.clone())
         .and_then(handlers::questions::get_question_handler);
@@ -60,7 +57,7 @@ async fn main() {
     let add_answer = warp::post()
         .and(path("answers"))
         .and(path::end())
-        .and(warp::body::form())
+        .and(warp::body::json())
         .and(store_filter.clone())
         .and_then(handlers::answers::add_answer_handler);
 

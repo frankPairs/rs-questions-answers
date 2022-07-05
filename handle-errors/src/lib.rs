@@ -11,17 +11,19 @@ pub enum Error {
     BadQuestionId,
     MissingParameters,
     QuestionNotFound,
+    DatabaseQueryError,
 }
 
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match *self {
+        match &*self {
             Error::ParseError(ref err) => write!(f, "Cannot parse parameter: {}", err),
             Error::MissingParameters => {
                 write!(f, "Missing parameters")
             }
             Error::QuestionNotFound => write!(f, "Question not found"),
             Error::BadQuestionId => write!(f, "Question id must be an integer"),
+            Error::DatabaseQueryError => write!(f, "Database error"),
         }
     }
 }
@@ -31,6 +33,11 @@ impl Reject for Error {}
 pub async fn error_handler(err: Rejection) -> Result<impl Reply, std::convert::Infallible> {
     if err.is_not_found() {
         Ok(reply::with_status("NOT_FOUND", StatusCode::NOT_FOUND))
+    } else if let Some(Error::DatabaseQueryError) = err.find() {
+        Ok(reply::with_status(
+            "Database error",
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ))
     } else if let Some(_err) = err.find::<CorsForbidden>() {
         Ok(reply::with_status(
             "Cors Forbidden error",

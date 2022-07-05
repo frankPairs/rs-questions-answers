@@ -1,5 +1,5 @@
-use handle_errors::Error;
 use std::collections::HashMap;
+use tracing::event;
 use warp::{http::StatusCode, reject, reply, Rejection, Reply};
 
 use crate::store;
@@ -9,67 +9,60 @@ pub async fn get_questions_handler(
     params: HashMap<String, String>,
     store: store::Store,
 ) -> Result<impl Reply, Rejection> {
-    let pagination = types::pagination::extract_pagination(params)?;
-    let questions: Vec<types::questions::Question> =
-        store.questions.read().values().cloned().collect();
-    let questions = &questions[pagination.start..pagination.end];
+    let mut pagination = types::pagination::Pagination::default();
 
-    Ok(reply::json(&questions))
+    if !params.is_empty() {
+        event!(tracing::Level::INFO, pagination = true);
+
+        pagination = types::pagination::extract_pagination(params)?;
+    }
+
+    match store
+        .get_questions(pagination.limit, pagination.offset)
+        .await
+    {
+        Ok(res) => Ok(reply::json(&res)),
+        Err(err) => Err(reject::custom(err)),
+    }
 }
 
 pub async fn add_question_handler(
-    new_question: types::questions::Question,
+    new_question: types::questions::NewQuestion,
     store: store::Store,
 ) -> Result<impl Reply, Rejection> {
-    store
-        .questions
-        .write()
-        .insert(new_question.id.to_string(), new_question);
-
-    Ok(reply::with_status("Question created!", StatusCode::CREATED))
+    match store.add_question(new_question).await {
+        Ok(_) => Ok(reply::with_status("Question created!", StatusCode::CREATED)),
+        Err(err) => Err(reject::custom(err)),
+    }
 }
 
 pub async fn get_question_handler(
-    question_id: i32,
+    question_id: u32,
     store: store::Store,
 ) -> Result<impl Reply, Rejection> {
-    match store
-        .questions
-        .write()
-        .get(&types::questions::QuestionId(question_id).to_string())
-    {
-        Some(question) => Ok(reply::json(question)),
-        None => Err(reject::custom(Error::QuestionNotFound)),
+    match store.get_question(question_id).await {
+        Ok(question) => Ok(reply::json(&question)),
+        Err(err) => Err(reject::custom(err)),
     }
 }
 
 pub async fn delete_question_handler(
-    question_id: i32,
+    question_id: u32,
     store: store::Store,
 ) -> Result<impl Reply, Rejection> {
-    match store
-        .questions
-        .write()
-        .remove(&types::questions::QuestionId(question_id).to_string())
-    {
-        Some(_) => Ok(reply::with_status("Question deleted!", StatusCode::OK)),
-        None => Err(reject::custom(Error::QuestionNotFound)),
+    match store.delete_question(question_id).await {
+        Ok(_) => Ok(reply::with_status("Question deleted!", StatusCode::OK)),
+        Err(err) => Err(reject::custom(err)),
     }
 }
 
 pub async fn update_question_handler(
-    question_id: i32,
+    question_id: u32,
     question: types::questions::Question,
     store: store::Store,
 ) -> Result<impl Reply, Rejection> {
-    match store
-        .questions
-        .write()
-        .get_mut(&types::questions::QuestionId(question_id).to_string())
-    {
-        Some(q) => *q = question,
-        None => return Err(reject::custom(Error::QuestionNotFound)),
+    match store.update_question(question, question_id).await {
+        Ok(_) => Ok(reply::with_status("Question updated!", StatusCode::OK)),
+        Err(err) => Err(reject::custom(err)),
     }
-
-    Ok(reply::with_status("Question updated!", StatusCode::OK))
 }
