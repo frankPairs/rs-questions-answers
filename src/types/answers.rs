@@ -17,7 +17,7 @@ pub struct NewAnswer {
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]
-pub struct AnswerId(pub String);
+pub struct AnswerId(pub i32);
 
 impl Display for AnswerId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
