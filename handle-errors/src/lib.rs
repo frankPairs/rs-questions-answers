@@ -1,4 +1,5 @@
 use reqwest::Error as ReqwestError;
+use reqwest_middleware::Error as ReqwestMiddlewareError;
 use std::fmt::{Display, Formatter};
 use tracing::{event, Level};
 use warp::reject::Reject;
@@ -14,9 +15,10 @@ pub enum Error {
     MissingParameters,
     QuestionNotFound,
     DatabaseQueryError,
-    ExternalAPIError(ReqwestError),
     ClientError(ApiLayerError),
     ServerError(ApiLayerError),
+    ReqwestAPIError(ReqwestError),
+    MiddlewareReqwestAPIError(ReqwestMiddlewareError),
 }
 
 #[derive(Debug, Clone)]
@@ -35,7 +37,8 @@ impl Display for Error {
             Error::QuestionNotFound => write!(f, "Question not found"),
             Error::BadQuestionId => write!(f, "Question id must be an integer"),
             Error::DatabaseQueryError => write!(f, "Database error"),
-            Error::ExternalAPIError(err) => write!(f, "Cannot execute: {}", err),
+            Error::ReqwestAPIError(err) => write!(f, "External API error: {}", err),
+            Error::MiddlewareReqwestAPIError(err) => write!(f, "External API error: {}", err),
             Error::ClientError(err) => write!(f, "External client error: {}", err),
             Error::ServerError(err) => write!(f, "External server error: {}", err),
         }
@@ -74,7 +77,14 @@ pub async fn error_handler(rej: Rejection) -> Result<impl Reply, std::convert::I
             "Database error",
             StatusCode::UNPROCESSABLE_ENTITY,
         ))
-    } else if let Some(Error::ExternalAPIError(err)) = rej.find() {
+    } else if let Some(Error::ReqwestAPIError(err)) = rej.find() {
+        event!(Level::ERROR, "{}", err);
+
+        Ok(reply::with_status(
+            "INTERNAL_SERVER_ERROR",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ))
+    } else if let Some(Error::MiddlewareReqwestAPIError(err)) = rej.find() {
         event!(Level::ERROR, "{}", err);
 
         Ok(reply::with_status(
