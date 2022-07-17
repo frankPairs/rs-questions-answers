@@ -1,4 +1,5 @@
 mod handlers;
+mod profanity;
 mod store;
 mod types;
 
