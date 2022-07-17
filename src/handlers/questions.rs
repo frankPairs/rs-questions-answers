@@ -28,6 +28,10 @@ pub async fn get_questions_handler(
     }
 }
 
+/// Add a new question coming from a POST request to the database.
+///
+/// It checks if title or the content of the question contain a censored content. We use tokio::spawn for executing the different
+/// calls to the profanity service in parallel.
 pub async fn add_question_handler(
     new_question: types::questions::NewQuestion,
     store: store::Store,
@@ -79,23 +83,31 @@ pub async fn delete_question_handler(
     }
 }
 
+/// Update an existiong question coming from a PUT request.
+///
+/// It checks if title or the content of the question contain a censored content. We use tokio::join for executing the different
+/// calls to the profanity service concurrenty.
 pub async fn update_question_handler(
     question_id: u32,
     question: types::questions::Question,
     store: store::Store,
 ) -> Result<impl Reply, Rejection> {
-    let title = match profanity::check_profanity(question.title).await {
-        Ok(censored_title) => censored_title,
-        Err(err) => return Err(reject::custom(err)),
+    let title_task = profanity::check_profanity(question.title);
+    let content_task = profanity::check_profanity(question.content);
+    let (title_res, content_res) = tokio::join!(title_task, content_task);
+
+    if title_res.is_err() {
+        return Err(reject::custom(title_res.unwrap_err()));
     };
-    let content = match profanity::check_profanity(question.content).await {
-        Ok(censored_content) => censored_content,
-        Err(err) => return Err(reject::custom(err)),
+
+    if content_res.is_err() {
+        return Err(reject::custom(content_res.unwrap_err()));
     };
+
     let question_updated = Question {
         id: question.id,
-        title,
-        content,
+        title: title_res.unwrap(),
+        content: content_res.unwrap(),
         tags: question.tags,
     };
 
