@@ -37,7 +37,7 @@ impl Store {
         limit: Option<u32>,
         offset: u32,
     ) -> Result<Vec<Question>, Error> {
-        match sqlx::query("SELECT * FROM questions LIMIT $1 OFFSET $2")
+        let query_result = sqlx::query("SELECT * FROM questions LIMIT $1 OFFSET $2")
             .bind(limit)
             .bind(offset)
             .map(|row: PgRow| Question {
@@ -47,8 +47,9 @@ impl Store {
                 tags: row.get("tags"),
             })
             .fetch_all(&self.connection)
-            .await
-        {
+            .await;
+
+        match query_result {
             Ok(questions) => Ok(questions),
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "Get Questions Error: {:?}", err);
@@ -59,7 +60,12 @@ impl Store {
     }
 
     pub async fn add_question(&self, new_question: NewQuestion) -> Result<Question, Error> {
-        match sqlx::query("INSERT INTO questions (title, content, tags) VALUES ($1, $2, $3) RETURNING id, title, content, tags;")
+        let query_result = sqlx::query(
+            "
+            INSERT INTO questions (title, content, tags) 
+            VALUES ($1, $2, $3) RETURNING id, title, content, tags;
+            ",
+        )
         .bind(new_question.title)
         .bind(new_question.content)
         .bind(new_question.tags)
@@ -68,7 +74,11 @@ impl Store {
             title: row.get("title"),
             content: row.get("content"),
             tags: row.get("tags"),
-        }).fetch_one(&self.connection).await {
+        })
+        .fetch_one(&self.connection)
+        .await;
+
+        match query_result {
             Ok(question) => Ok(question),
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "{:?}", err);
@@ -79,7 +89,7 @@ impl Store {
     }
 
     pub async fn get_question(&self, question_id: u32) -> Result<Question, Error> {
-        match sqlx::query("SELECT * FROM questions WHERE id = $1;")
+        let query_result = sqlx::query("SELECT * FROM questions WHERE id = $1;")
             .bind(question_id)
             .map(|row: PgRow| Question {
                 id: QuestionId(row.get("id")),
@@ -88,8 +98,9 @@ impl Store {
                 tags: row.get("tags"),
             })
             .fetch_one(&self.connection)
-            .await
-        {
+            .await;
+
+        match query_result {
             Ok(question) => Ok(question),
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "{:?}", err);
@@ -104,12 +115,13 @@ impl Store {
         question: Question,
         question_id: u32,
     ) -> Result<Question, Error> {
-        match sqlx::query(
+        let query_result = sqlx::query(
             "
             UPDATE questions 
             SET title = $1, content = $2, tags = $3 
             WHERE id = $4
-            RETURNING id, title, content, tags;",
+            RETURNING id, title, content, tags;
+            ",
         )
         .bind(question.title)
         .bind(question.content)
@@ -122,8 +134,9 @@ impl Store {
             tags: row.get("tags"),
         })
         .fetch_one(&self.connection)
-        .await
-        {
+        .await;
+
+        match query_result {
             Ok(question) => Ok(question),
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "Update Question Error: {:?}", err);
@@ -134,11 +147,12 @@ impl Store {
     }
 
     pub async fn delete_question(&self, question_id: u32) -> Result<bool, Error> {
-        match sqlx::query("DELETE FROM questions WHERE id = $1;")
+        let query_result = sqlx::query("DELETE FROM questions WHERE id = $1;")
             .bind(question_id)
             .execute(&self.connection)
-            .await
-        {
+            .await;
+
+        match query_result {
             Ok(_) => Ok(true),
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "{:?}", err);
@@ -150,7 +164,10 @@ impl Store {
 
     pub async fn add_answer(&self, new_answer: NewAnswer) -> Result<Answer, Error> {
         let query_result = sqlx::query(
-            "INSERT INTO answers (content, corresponding_question) VALUES ($1, $2) RETURNING id, content, corresponding_question;",
+            "
+            INSERT INTO answers (content, corresponding_question) 
+            VALUES ($1, $2) RETURNING id, content, corresponding_question;
+            ",
         )
         .bind(new_answer.content)
         .bind(new_answer.question_id.0)

@@ -1,4 +1,6 @@
+use reqwest::Error as ReqwestError;
 use std::fmt::{Display, Formatter};
+use tracing::{event, Level};
 use warp::reject::Reject;
 use warp::{
     cors::CorsForbidden, filters::body::BodyDeserializeError, http::StatusCode, reply, Rejection,
@@ -12,6 +14,15 @@ pub enum Error {
     MissingParameters,
     QuestionNotFound,
     DatabaseQueryError,
+    ExternalAPIError(ReqwestError),
+    ClientError(ApiLayerError),
+    ServerError(ApiLayerError),
+}
+
+#[derive(Debug, Clone)]
+pub struct ApiLayerError {
+    pub status: u16,
+    pub message: String,
 }
 
 impl Display for Error {
@@ -24,34 +35,65 @@ impl Display for Error {
             Error::QuestionNotFound => write!(f, "Question not found"),
             Error::BadQuestionId => write!(f, "Question id must be an integer"),
             Error::DatabaseQueryError => write!(f, "Database error"),
+            Error::ExternalAPIError(err) => write!(f, "Cannot execute: {}", err),
+            Error::ClientError(err) => write!(f, "External client error: {}", err),
+            Error::ServerError(err) => write!(f, "External server error: {}", err),
         }
     }
 }
 
 impl Reject for Error {}
 
-pub async fn error_handler(err: Rejection) -> Result<impl Reply, std::convert::Infallible> {
-    if err.is_not_found() {
+impl Display for ApiLayerError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Status: {}, Message: {}", self.status, self.message)
+    }
+}
+
+impl Reject for ApiLayerError {}
+
+pub async fn error_handler(rej: Rejection) -> Result<impl Reply, std::convert::Infallible> {
+    if rej.is_not_found() {
         Ok(reply::with_status("NOT_FOUND", StatusCode::NOT_FOUND))
-    } else if let Some(Error::DatabaseQueryError) = err.find() {
-        Ok(reply::with_status(
-            "Database error",
-            StatusCode::UNPROCESSABLE_ENTITY,
-        ))
-    } else if let Some(_err) = err.find::<CorsForbidden>() {
+    } else if let Some(err) = rej.find::<CorsForbidden>() {
+        event!(Level::ERROR, "{}", err);
+
         Ok(reply::with_status(
             "Cors Forbidden error",
             StatusCode::FORBIDDEN,
         ))
-    } else if let Some(_err) = err.find::<BodyDeserializeError>() {
+    } else if let Some(err) = rej.find::<BodyDeserializeError>() {
+        event!(Level::ERROR, "{}", err);
+
         Ok(reply::with_status(
             "Bad parameters",
             StatusCode::UNPROCESSABLE_ENTITY,
         ))
-    } else if let Some(_err) = err.find::<Error>() {
+    } else if let Some(Error::DatabaseQueryError) = rej.find() {
         Ok(reply::with_status(
-            "Query parameters error",
-            StatusCode::RANGE_NOT_SATISFIABLE,
+            "Database error",
+            StatusCode::UNPROCESSABLE_ENTITY,
+        ))
+    } else if let Some(Error::ExternalAPIError(err)) = rej.find() {
+        event!(Level::ERROR, "{}", err);
+
+        Ok(reply::with_status(
+            "INTERNAL_SERVER_ERROR",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ))
+    } else if let Some(Error::ClientError(err)) = rej.find() {
+        event!(Level::ERROR, "{}", err);
+
+        Ok(reply::with_status(
+            "INTERNAL_SERVER_ERROR",
+            StatusCode::INTERNAL_SERVER_ERROR,
+        ))
+    } else if let Some(Error::ServerError(err)) = rej.find() {
+        event!(Level::ERROR, "{}", err);
+
+        Ok(reply::with_status(
+            "INTERNAL_SERVER_ERROR",
+            StatusCode::INTERNAL_SERVER_ERROR,
         ))
     } else {
         Ok(reply::with_status(
