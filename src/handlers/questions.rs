@@ -32,17 +32,24 @@ pub async fn add_question_handler(
     new_question: types::questions::NewQuestion,
     store: store::Store,
 ) -> Result<impl Reply, Rejection> {
-    let title = match profanity::check_profanity(new_question.title).await {
-        Ok(censored_title) => censored_title,
-        Err(err) => return Err(reject::custom(err)),
+    let get_title_task = tokio::spawn(profanity::check_profanity(new_question.title));
+    let get_content_task = tokio::spawn(profanity::check_profanity(new_question.content));
+    let (title_res, content_res) = (
+        get_title_task.await.unwrap(),
+        get_content_task.await.unwrap(),
+    );
+
+    if title_res.is_err() {
+        return Err(reject::custom(title_res.unwrap_err()));
     };
-    let content = match profanity::check_profanity(new_question.content).await {
-        Ok(censored_content) => censored_content,
-        Err(err) => return Err(reject::custom(err)),
+
+    if content_res.is_err() {
+        return Err(reject::custom(content_res.unwrap_err()));
     };
+
     let question = NewQuestion {
-        title,
-        content,
+        title: title_res.unwrap(),
+        content: content_res.unwrap(),
         tags: new_question.tags,
     };
 
