@@ -5,7 +5,7 @@ use warp::{http::StatusCode, reject, reply, Rejection, Reply};
 use crate::profanity;
 use crate::store;
 use crate::types;
-use crate::types::questions::NewQuestion;
+use crate::types::questions::{NewQuestion, Question};
 
 pub async fn get_questions_handler(
     params: HashMap<String, String>,
@@ -77,7 +77,22 @@ pub async fn update_question_handler(
     question: types::questions::Question,
     store: store::Store,
 ) -> Result<impl Reply, Rejection> {
-    match store.update_question(question, question_id).await {
+    let title = match profanity::check_profanity(question.title).await {
+        Ok(censored_title) => censored_title,
+        Err(err) => return Err(reject::custom(err)),
+    };
+    let content = match profanity::check_profanity(question.content).await {
+        Ok(censored_content) => censored_content,
+        Err(err) => return Err(reject::custom(err)),
+    };
+    let question_updated = Question {
+        id: question.id,
+        title,
+        content,
+        tags: question.tags,
+    };
+
+    match store.update_question(question_updated, question_id).await {
         Ok(_) => Ok(reply::with_status("Question updated!", StatusCode::OK)),
         Err(err) => Err(reject::custom(err)),
     }
