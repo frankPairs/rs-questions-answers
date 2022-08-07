@@ -1,3 +1,4 @@
+mod crypt;
 mod handlers;
 mod profanity;
 mod store;
@@ -61,6 +62,12 @@ async fn main() {
         .and(warp::body::json())
         .and(store_filter.clone())
         .and_then(handlers::answers::add_answer_handler);
+    let registration = warp::post()
+        .and(path("registration"))
+        .and(path::end())
+        .and(warp::body::json())
+        .and(store_filter.clone())
+        .and_then(handlers::auth::register);
 
     // Global Routes
     let routes = get_questions
@@ -69,6 +76,7 @@ async fn main() {
         .or(delete_question)
         .or(get_question)
         .or(add_answer)
+        .or(registration)
         .with(cors)
         .with(warp::trace::request())
         .recover(error_handler);

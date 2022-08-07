@@ -1,12 +1,17 @@
 use handle_errors::Error;
+
 use sqlx::{
     postgres::{PgPool, PgPoolOptions, PgRow},
     Row,
 };
 
-use crate::types::{
-    answers::{Answer, AnswerId, NewAnswer},
-    questions::{NewQuestion, Question, QuestionId},
+use crate::{
+    crypt::hash_password,
+    types::{
+        account::{Account, AccountId, NewAccount},
+        answers::{Answer, AnswerId, NewAnswer},
+        questions::{NewQuestion, Question, QuestionId},
+    },
 };
 
 const DB_MAX_CONNECTIONS: u32 = 5;
@@ -181,6 +186,34 @@ impl Store {
 
         match query_result {
             Ok(answer) => Ok(answer),
+            Err(err) => {
+                tracing::event!(tracing::Level::ERROR, "{:?}", err);
+
+                Err(Error::DatabaseQueryError)
+            }
+        }
+    }
+
+    pub async fn add_account(&self, new_account: NewAccount) -> Result<Account, Error> {
+        let hashed_password = hash_password(new_account.password.as_bytes());
+        let query_result = sqlx::query(
+            "
+            INSERT INTO accounts (email, password) 
+            VALUES ($1, $2) RETURNING id, email, password;
+            ",
+        )
+        .bind(new_account.email)
+        .bind(hashed_password)
+        .map(|row: PgRow| Account {
+            id: AccountId(row.get("id")),
+            email: row.get("email"),
+            password: row.get("password"),
+        })
+        .fetch_one(&self.connection)
+        .await;
+
+        match query_result {
+            Ok(account) => Ok(account),
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "{:?}", err);
 
