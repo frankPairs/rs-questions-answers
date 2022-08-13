@@ -59,7 +59,7 @@ impl Store {
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "Get Questions Error: {:?}", err);
 
-                Err(Error::DatabaseQueryError)
+                Err(Error::DatabaseQueryError(err))
             }
         }
     }
@@ -88,7 +88,7 @@ impl Store {
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "{:?}", err);
 
-                Err(Error::DatabaseQueryError)
+                Err(Error::DatabaseQueryError(err))
             }
         }
     }
@@ -110,7 +110,7 @@ impl Store {
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "{:?}", err);
 
-                Err(Error::DatabaseQueryError)
+                Err(Error::DatabaseQueryError(err))
             }
         }
     }
@@ -146,7 +146,7 @@ impl Store {
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "Update Question Error: {:?}", err);
 
-                Err(Error::DatabaseQueryError)
+                Err(Error::DatabaseQueryError(err))
             }
         }
     }
@@ -162,7 +162,7 @@ impl Store {
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "{:?}", err);
 
-                Err(Error::DatabaseQueryError)
+                Err(Error::DatabaseQueryError(err))
             }
         }
     }
@@ -189,7 +189,7 @@ impl Store {
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "{:?}", err);
 
-                Err(Error::DatabaseQueryError)
+                Err(Error::DatabaseQueryError(err))
             }
         }
     }
@@ -217,7 +217,7 @@ impl Store {
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "{:?}", err);
 
-                Err(Error::DatabaseQueryError)
+                Err(Error::DatabaseQueryError(err))
             }
         }
     }

@@ -14,7 +14,7 @@ pub enum Error {
     BadQuestionId,
     MissingParameters,
     QuestionNotFound,
-    DatabaseQueryError,
+    DatabaseQueryError(sqlx::Error),
     ClientError(ApiLayerError),
     ServerError(ApiLayerError),
     ReqwestAPIError(ReqwestError),
@@ -36,7 +36,7 @@ impl Display for Error {
             }
             Error::QuestionNotFound => write!(f, "Question not found"),
             Error::BadQuestionId => write!(f, "Question id must be an integer"),
-            Error::DatabaseQueryError => write!(f, "Database error"),
+            Error::DatabaseQueryError(err) => write!(f, "Database error: {}", err),
             Error::ReqwestAPIError(err) => write!(f, "External API error: {}", err),
             Error::MiddlewareReqwestAPIError(err) => write!(f, "External API error: {}", err),
             Error::ClientError(err) => write!(f, "External client error: {}", err),
@@ -72,11 +72,28 @@ pub async fn error_handler(rej: Rejection) -> Result<impl Reply, std::convert::I
             "Bad parameters",
             StatusCode::UNPROCESSABLE_ENTITY,
         ))
-    } else if let Some(Error::DatabaseQueryError) = rej.find() {
-        Ok(reply::with_status(
-            "Database error",
-            StatusCode::UNPROCESSABLE_ENTITY,
-        ))
+    } else if let Some(Error::DatabaseQueryError(err)) = rej.find() {
+        event!(Level::ERROR, "{}", err);
+
+        match err {
+            sqlx::Error::Database(db_err) => {
+                if db_err.code().unwrap().parse::<u32>().unwrap() == 23505 {
+                    return Ok(reply::with_status(
+                        "Account already exists",
+                        StatusCode::UNPROCESSABLE_ENTITY,
+                    ));
+                }
+
+                Ok(reply::with_status(
+                    "Database error",
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                ))
+            }
+            _ => Ok(reply::with_status(
+                "Database error",
+                StatusCode::UNPROCESSABLE_ENTITY,
+            )),
+        }
     } else if let Some(Error::ReqwestAPIError(err)) = rej.find() {
         event!(Level::ERROR, "{}", err);
 
@@ -106,6 +123,8 @@ pub async fn error_handler(rej: Rejection) -> Result<impl Reply, std::convert::I
             StatusCode::INTERNAL_SERVER_ERROR,
         ))
     } else {
+        event!(Level::ERROR, "Unknwon error");
+
         Ok(reply::with_status(
             "INTERNAL_SERVER_ERROR",
             StatusCode::INTERNAL_SERVER_ERROR,
