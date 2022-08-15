@@ -1,5 +1,6 @@
 use argon2::{self, Config, Error as Argon2Error};
-use paseto::v1::local_paseto;
+use chrono::prelude::*;
+use paseto::PasetoBuilder;
 use rand::{thread_rng, Rng};
 
 const TOKEN_SECRET: &str = "RANDOM WORDS WINTER MACINTOSH PC";
@@ -45,6 +46,17 @@ pub fn verify_password(encoded_password: &str, password: &[u8]) -> Result<bool, 
     argon2::verify_encoded(encoded_password, password)
 }
 
-pub fn gen_token(value: String) -> Result<String, Error> {
-    local_paseto(&value, None, TOKEN_SECRET.as_bytes()).map_err(|_| Error::EncryptTokenError)
+pub fn gen_token(
+    claim_key: String,
+    claim_value: serde_json::value::Value,
+) -> Result<String, Error> {
+    let current_date = Utc::now();
+    let one_day_duration = current_date + chrono::Duration::days(1);
+
+    PasetoBuilder::new()
+        .set_encryption_key(TOKEN_SECRET.as_bytes())
+        .set_not_before(&one_day_duration)
+        .set_claim(&claim_key, claim_value)
+        .build()
+        .map_err(|_| Error::EncryptTokenError)
 }

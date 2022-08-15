@@ -17,7 +17,8 @@ pub async fn login(credentials: Credentials, store: Store) -> Result<impl Reply,
         Ok(account) => match verify_password(&account.password, credentials.password.as_bytes()) {
             Ok(verified) => {
                 if verified {
-                    let token_result = gen_token(account.email);
+                    let token_result =
+                        gen_token(String::from("email"), serde_json::json!(account.email));
 
                     match token_result {
                         Ok(token) => Ok(reply::json(&token)),
