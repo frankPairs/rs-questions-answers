@@ -68,6 +68,12 @@ async fn main() {
         .and(warp::body::json())
         .and(store_filter.clone())
         .and_then(handlers::auth::register);
+    let login = warp::post()
+        .and(path("login"))
+        .and(path::end())
+        .and(warp::body::json())
+        .and(store_filter.clone())
+        .and_then(handlers::auth::login);
 
     // Global Routes
     let routes = get_questions
@@ -77,6 +83,7 @@ async fn main() {
         .or(get_question)
         .or(add_answer)
         .or(registration)
+        .or(login)
         .with(cors)
         .with(warp::trace::request())
         .recover(error_handler);

@@ -1,3 +1,4 @@
+use argon2::Error as Argon2Error;
 use reqwest::Error as ReqwestError;
 use reqwest_middleware::Error as ReqwestMiddlewareError;
 use std::fmt::{Display, Formatter};
@@ -19,6 +20,9 @@ pub enum Error {
     ServerError(ApiLayerError),
     ReqwestAPIError(ReqwestError),
     MiddlewareReqwestAPIError(ReqwestMiddlewareError),
+    WrongPassword,
+    ArgonLibraryError(Argon2Error),
+    TokenError,
 }
 
 #[derive(Debug, Clone)]
@@ -41,6 +45,9 @@ impl Display for Error {
             Error::MiddlewareReqwestAPIError(err) => write!(f, "External API error: {}", err),
             Error::ClientError(err) => write!(f, "External client error: {}", err),
             Error::ServerError(err) => write!(f, "External server error: {}", err),
+            Error::WrongPassword => write!(f, "Incorrect credentials"),
+            Error::ArgonLibraryError(err) => write!(f, "Cannot verify password: {}", err),
+            Error::TokenError => write!(f, "Token error."),
         }
     }
 }
@@ -121,6 +128,27 @@ pub async fn error_handler(rej: Rejection) -> Result<impl Reply, std::convert::I
         Ok(reply::with_status(
             "INTERNAL_SERVER_ERROR",
             StatusCode::INTERNAL_SERVER_ERROR,
+        ))
+    } else if let Some(Error::WrongPassword) = rej.find() {
+        event!(Level::ERROR, "{}", "Invalid credentials.");
+
+        Ok(reply::with_status(
+            "INVALID_CREDENTIALS",
+            StatusCode::UNAUTHORIZED,
+        ))
+    } else if let Some(Error::ArgonLibraryError(err)) = rej.find() {
+        event!(Level::ERROR, "{}", err);
+
+        Ok(reply::with_status(
+            "INVALID_CREDENTIALS",
+            StatusCode::UNAUTHORIZED,
+        ))
+    } else if let Some(Error::TokenError) = rej.find() {
+        event!(Level::ERROR, "Token Error.");
+
+        Ok(reply::with_status(
+            "INVALID_CREDENTIALS",
+            StatusCode::UNAUTHORIZED,
         ))
     } else {
         event!(Level::ERROR, "Unknwon error");

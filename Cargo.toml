@@ -19,3 +19,5 @@ reqwest-middleware = { version = "0.1.1" }
 reqwest-retry = { version = "0.1.1" }
 rand = { version = "0.8" }
 rust-argon2 = { version = "1.0" }
+paseto = { version = "2.0.2+1.0.3" }
+
