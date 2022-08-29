@@ -2,9 +2,10 @@ use warp::{http::StatusCode, reject, reply, Rejection, Reply};
 
 use crate::profanity;
 use crate::store;
-use crate::types::answers::NewAnswer;
+use crate::types::{account::Session, answers::NewAnswer};
 
 pub async fn add_answer_handler(
+    session: Session,
     new_answer: NewAnswer,
     store: store::Store,
 ) -> Result<impl Reply, Rejection> {
@@ -15,6 +16,7 @@ pub async fn add_answer_handler(
     let answer_updated = NewAnswer {
         content,
         question_id: new_answer.question_id,
+        account_id: session.account_id,
     };
 
     match store.add_answer(answer_updated).await {

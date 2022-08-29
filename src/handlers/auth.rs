@@ -1,8 +1,10 @@
-use warp::{reject, reply, Rejection, Reply};
+use std::future;
+use tracing::{event, Level};
+use warp::{header, reject, reply, Filter, Rejection, Reply};
 
-use crate::crypt::{gen_token, verify_password};
+use crate::crypt::{decode_token, encode_token, verify_password};
 use crate::store::Store;
-use crate::types::account::{Credentials, NewAccount};
+use crate::types::account::{Credentials, NewAccount, Session};
 
 /// Handler responsible to register a new account to the database.
 pub async fn register(new_account: NewAccount, store: Store) -> Result<impl Reply, Rejection> {
@@ -18,7 +20,7 @@ pub async fn login(credentials: Credentials, store: Store) -> Result<impl Reply,
             Ok(verified) => {
                 if verified {
                     let token_result =
-                        gen_token(String::from("email"), serde_json::json!(account.email));
+                        encode_token(String::from("account_id"), serde_json::json!(account.id.0));
 
                     match token_result {
                         Ok(token) => Ok(reply::json(&token)),
@@ -32,4 +34,35 @@ pub async fn login(credentials: Credentials, store: Store) -> Result<impl Reply,
         },
         Err(err) => Err(reject::custom(err)),
     }
+}
+
+pub fn verify_token(token: String) -> Result<Session, handle_errors::Error> {
+    match decode_token(token) {
+        Ok(value) => serde_json::from_value::<Session>(value).map_err(|err| {
+            event!(Level::ERROR, "{}", err);
+
+            handle_errors::Error::TokenError
+        }),
+        Err(err) => {
+            event!(Level::ERROR, "{}", err);
+
+            Err(handle_errors::Error::TokenError)
+        }
+    }
+}
+
+pub fn auth() -> impl Filter<Extract = (Session,), Error = Rejection> + Clone {
+    header::<String>("Authorization").and_then(|token: String| {
+        let session_result = verify_token(token);
+        let session = match session_result {
+            Ok(session) => session,
+            Err(err) => {
+                event!(Level::ERROR, "{}", err);
+
+                return future::ready(Err(reject::custom(handle_errors::Error::TokenError)));
+            }
+        };
+
+        future::ready(Ok(session))
+    })
 }

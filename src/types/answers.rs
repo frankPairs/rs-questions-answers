@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt::{Display, Formatter};
 
-use crate::types::questions::QuestionId;
+use crate::types::{account::AccountId, questions::QuestionId};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Answer {
@@ -14,6 +14,8 @@ pub struct Answer {
 pub struct NewAnswer {
     pub content: String,
     pub question_id: QuestionId,
+    #[serde(skip_deserializing)]
+    pub account_id: AccountId,
 }
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Hash, Clone)]

@@ -23,6 +23,7 @@ pub enum Error {
     WrongPassword,
     ArgonLibraryError(Argon2Error),
     TokenError,
+    Unauthorized,
 }
 
 #[derive(Debug, Clone)]
@@ -48,6 +49,7 @@ impl Display for Error {
             Error::WrongPassword => write!(f, "Incorrect credentials"),
             Error::ArgonLibraryError(err) => write!(f, "Cannot verify password: {}", err),
             Error::TokenError => write!(f, "Token error."),
+            Error::Unauthorized => write!(f, "Unauthorized."),
         }
     }
 }
@@ -147,11 +149,15 @@ pub async fn error_handler(rej: Rejection) -> Result<impl Reply, std::convert::I
         event!(Level::ERROR, "Token Error.");
 
         Ok(reply::with_status(
-            "INVALID_CREDENTIALS",
+            "INVALID_TOKEN",
             StatusCode::UNAUTHORIZED,
         ))
+    } else if let Some(Error::Unauthorized) = rej.find() {
+        event!(Level::ERROR, "Unauthorized.");
+
+        Ok(reply::with_status("FORBIDDEN", StatusCode::FORBIDDEN))
     } else {
-        event!(Level::ERROR, "Unknwon error");
+        event!(Level::ERROR, "Unknown error");
 
         Ok(reply::with_status(
             "INTERNAL_SERVER_ERROR",

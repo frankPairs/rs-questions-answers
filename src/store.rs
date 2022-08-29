@@ -67,13 +67,14 @@ impl Store {
     pub async fn add_question(&self, new_question: NewQuestion) -> Result<Question, Error> {
         let query_result = sqlx::query(
             "
-            INSERT INTO questions (title, content, tags) 
-            VALUES ($1, $2, $3) RETURNING id, title, content, tags;
+            INSERT INTO questions (title, content, tags, account_id) 
+            VALUES ($1, $2, $3, $4) RETURNING id, title, content, tags;
             ",
         )
         .bind(new_question.title)
         .bind(new_question.content)
         .bind(new_question.tags)
+        .bind(new_question.account_id.0)
         .map(|row: PgRow| Question {
             id: QuestionId(row.get("id")),
             title: row.get("title"),
@@ -93,7 +94,7 @@ impl Store {
         }
     }
 
-    pub async fn get_question(&self, question_id: u32) -> Result<Question, Error> {
+    pub async fn get_question(&self, question_id: i32) -> Result<Question, Error> {
         let query_result = sqlx::query("SELECT * FROM questions WHERE id = $1;")
             .bind(question_id)
             .map(|row: PgRow| Question {
@@ -118,7 +119,7 @@ impl Store {
     pub async fn update_question(
         &self,
         question: Question,
-        question_id: u32,
+        question_id: i32,
     ) -> Result<Question, Error> {
         let query_result = sqlx::query(
             "
@@ -151,7 +152,7 @@ impl Store {
         }
     }
 
-    pub async fn delete_question(&self, question_id: u32) -> Result<bool, Error> {
+    pub async fn delete_question(&self, question_id: i32) -> Result<bool, Error> {
         let query_result = sqlx::query("DELETE FROM questions WHERE id = $1;")
             .bind(question_id)
             .execute(&self.connection)
@@ -170,12 +171,13 @@ impl Store {
     pub async fn add_answer(&self, new_answer: NewAnswer) -> Result<Answer, Error> {
         let query_result = sqlx::query(
             "
-            INSERT INTO answers (content, corresponding_question) 
-            VALUES ($1, $2) RETURNING id, content, corresponding_question;
+            INSERT INTO answers (content, corresponding_question, account_id) 
+            VALUES ($1, $2, $3) RETURNING id, content, corresponding_question;
             ",
         )
         .bind(new_answer.content)
         .bind(new_answer.question_id.0)
+        .bind(new_answer.account_id.0)
         .map(|row: PgRow| Answer {
             id: AnswerId(row.get("id")),
             content: row.get("content"),
@@ -235,6 +237,28 @@ impl Store {
 
         match query_result {
             Ok(account) => Ok(account),
+            Err(err) => {
+                tracing::event!(tracing::Level::ERROR, "{:?}", err);
+
+                Err(Error::DatabaseQueryError(err))
+            }
+        }
+    }
+
+    pub async fn is_question_owner(
+        &self,
+        question_id: i32,
+        account_id: i32,
+    ) -> Result<bool, Error> {
+        let query_result =
+            sqlx::query("SELECT * FROM questions WHERE id = $1 AND account_id = $2;")
+                .bind(question_id)
+                .bind(account_id)
+                .fetch_optional(&self.connection)
+                .await;
+
+        match query_result {
+            Ok(question) => Ok(question.is_some()),
             Err(err) => {
                 tracing::event!(tracing::Level::ERROR, "{:?}", err);
 
