@@ -24,6 +24,7 @@ pub enum Error {
     ArgonLibraryError(Argon2Error),
     TokenError,
     Unauthorized,
+    EnvVariableError,
 }
 
 #[derive(Debug, Clone)]
@@ -50,6 +51,7 @@ impl Display for Error {
             Error::ArgonLibraryError(err) => write!(f, "Cannot verify password: {}", err),
             Error::TokenError => write!(f, "Token error."),
             Error::Unauthorized => write!(f, "Unauthorized."),
+            Error::EnvVariableError => write!(f, "Environment variable is missing."),
         }
     }
 }

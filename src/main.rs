@@ -4,20 +4,29 @@ mod profanity;
 mod store;
 mod types;
 
+use dotenv;
 use handle_errors::error_handler;
+use std::env;
 use tracing_subscriber::fmt::format::FmtSpan;
 use warp::{http::Method, path, Filter};
 
 #[tokio::main]
 async fn main() {
-    let log_filter = std::env::var("RUST_LOG").unwrap_or_else(|_| "questions_answers".to_string());
+    dotenv::dotenv().ok();
+
+    let log_filter = env::var("RUST_LOG").unwrap_or("questions_answers".to_string());
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL env variable is missing.");
+    let port = env::var("PORT")
+        .unwrap_or(String::from("8000"))
+        .parse::<u16>()
+        .unwrap_or(8000);
 
     tracing_subscriber::fmt()
         .with_env_filter(log_filter)
         .with_span_events(FmtSpan::CLOSE)
         .init();
 
-    let store = store::Store::new("postgres://frank:postgres@localhost:5432/postgres").await;
+    let store = store::Store::new(&database_url).await;
     let store_filter = warp::any().map(move || store.clone());
     let cors = warp::cors()
         .allow_any_origin()
@@ -93,5 +102,5 @@ async fn main() {
         .recover(error_handler);
 
     // start the server and pass the route filter to it
-    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+    warp::serve(routes).run(([127, 0, 0, 1], port)).await;
 }

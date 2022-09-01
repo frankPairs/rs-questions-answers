@@ -3,9 +3,8 @@ use chrono::prelude::*;
 use paseto::{tokens, PasetoBuilder};
 use rand::{thread_rng, Rng};
 use serde_json::Value;
+use std::env;
 use tracing::{event, Level};
-
-const TOKEN_SECRET: &str = "RANDOM WORDS WINTER MACINTOSH PC";
 
 #[derive(Debug)]
 pub enum Error {
@@ -56,9 +55,14 @@ pub fn encode_token(
 ) -> Result<String, Error> {
     let current_date = Utc::now();
     let one_day_duration = current_date + chrono::Duration::days(1);
+    let token_secret = env::var("AUTH_SECRET").map_err(|_| {
+        event!(Level::ERROR, "AUTH_SECRET env variable is missing");
+
+        Error::EncryptTokenError
+    })?;
 
     PasetoBuilder::new()
-        .set_encryption_key(&Vec::from(TOKEN_SECRET.as_bytes()))
+        .set_encryption_key(&Vec::from(token_secret.as_bytes()))
         .set_expiration(&one_day_duration)
         .set_not_before(&current_date)
         .set_claim(&claim_key, claim_value)
@@ -71,10 +75,16 @@ pub fn encode_token(
 }
 
 pub fn decode_token(token: String) -> Result<Value, Error> {
+    let token_secret = env::var("AUTH_SECRET").map_err(|_| {
+        event!(Level::ERROR, "AUTH_SECRET env variable is missing");
+
+        Error::EncryptTokenError
+    })?;
+
     tokens::validate_local_token(
         &token,
         None,
-        TOKEN_SECRET.as_bytes(),
+        token_secret.as_bytes(),
         &tokens::TimeBackend::Chrono,
     )
     .map_err(|err| {
