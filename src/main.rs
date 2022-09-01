@@ -101,6 +101,8 @@ async fn main() {
         .with(warp::trace::request())
         .recover(error_handler);
 
+    tracing::info!("Q&A service build ID {},", env!("RUST_WEB_DEV_VERSION"));
+
     // start the server and pass the route filter to it
     warp::serve(routes).run(([127, 0, 0, 1], port)).await;
 }
