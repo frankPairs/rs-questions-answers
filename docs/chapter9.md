@@ -1,9 +1,0 @@
-# Chapter 9 - Add authentication and authorization
-
-- Authentication is a way to limit API consumers to access your data.
-- PostgreSQL has a default table called "user" where it saves the users of the database. If you need to create a user entity for your application to save data like email, password, etc.. you will need to assign another table name (for example, you could create a table called "account").
-- If we want to create an association between accounts and questions table, the common way to do it is with the user id. In that way, if we need to change data related to an account, we only need to do it in the accounts table.
-- For security reasons, it is very important to save sensitive data like a password encrypted in the database. One common way to do it is saving the password as a hash using a hash alghorithm. For more information about this topic, you can check this  [Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html). However, we can decrease the chances to expose sensitive information by "salting" passwords. Salt a password means adding random sequence of characters (before or after your password) before hashing it. That makes almost impossible for an attacker to decrypt them.
-- There are two common ways to work with authentication:
-  - Stateless authentication: The authentication services generates a token after user is logged in. The user has to use that token for each protected endpoint.
-  - Stateful authentication: As stateless authentication, the "key" for authenticating is a token. THe main difference is that in this case, the token is saved in a database (for example, in a Redis database) so every time the client sends a token, server checks if it is in the database. With this system, it is possible to offer the possibility to revoke a token, which in practice is removing it from the database.
